@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Supply Portal</title>
+
+  <!-- UI baseline -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- QR Scanner -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+  <!-- QR Generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0f1424; --card:#151b2e; --muted:#a3acc2; --accent:#7c9cff; --accent2:#00d3a7; --line:#253056;
+      --good:#00d3a7; --warn:#ffc430; --bad:#ff6b6b; --white:#eef2ff;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;background:linear-gradient(180deg,#0b1020,#0f1424);color:var(--white)}
+    a{color:inherit;text-decoration:none}
+    .container{max-width:1100px;margin:0 auto;padding:20px}
+    nav{position:sticky;top:0;z-index:20;background:rgba(10,14,28,.7);backdrop-filter:saturate(140%) blur(8px);border-bottom:1px solid rgba(255,255,255,.06)}
+    .navwrap{display:flex;align-items:center;gap:14px;justify-content:space-between;padding:10px 0}
+    .brand{display:flex;align-items:center;gap:10px}
+    .logo{width:34px;height:34px;border-radius:10px;background:conic-gradient(from 140deg,var(--accent),var(--accent2));box-shadow:0 6px 24px rgba(0,211,167,.35)}
+    .brand h1{font-size:18px;margin:0}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);padding:8px 12px;border-radius:10px;color:var(--muted);cursor:pointer}
+    .tab.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#021012;border:none}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+
+    .card{background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px}
+    .card h3{margin:4px 0 10px}
+    label{font-size:13px;color:var(--muted)}
+    input,select,textarea{width:100%;padding:10px 12px;margin-top:6px;margin-bottom:10px;border-radius:10px;border:1px solid var(--line);background:#0c1222;color:var(--white)}
+    button{border:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#021012;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+    table{width:100%;border-collapse:collapse;background:#0c1222;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+    th,td{padding:10px 12px;text-align:left;border-top:1px solid var(--line)}
+    thead{background:rgba(255,255,255,.04)}
+    .pill{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid rgba(255,255,255,.18)}
+    .on{background:rgba(0,211,167,.14);color:#8bf2dd;border-color:rgba(0,211,167,.35)}
+    .delay{background:rgba(255,196,48,.14);color:#ffe4a6;border-color:rgba(255,196,48,.35)}
+    .done{background:rgba(124,156,255,.18);color:#dfe6ff;border-color:rgba(124,156,255,.35)}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .muted{color:var(--muted);font-size:13px}
+    .right{display:flex;justify-content:flex-end}
+    .hint{font-size:12px;color:#95a2c9}
+    .danger{color:#ffd1d1}
+    footer{color:var(--muted);text-align:center;padding:40px 0}
+    .hidden{display:none}
+    .qrbox{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+    .box{border:1px dashed var(--line);border-radius:12px;padding:10px}
+  </style>
+</head>
+<body>
+  <!-- NAV -->
+  <nav>
+    <div class="container navwrap">
+      <div class="brand">
+        <div class="logo"></div>
+        <h1>Smart Supply Portal</h1>
+      </div>
+      <div class="tabs">
+        <div class="tab active" data-tab="po">PO</div>
+        <div class="tab" data-tab="ship">Shipment</div>
+        <div class="tab" data-tab="receive">Receive (QR)</div>
+        <div class="tab" data-tab="dash">Dashboard</div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="container">
+
+    <!-- PO -->
+    <section id="po" class="view">
+      <div class="grid">
+        <div class="card">
+          <h3>🧾 สร้างใบสั่งซื้อ (PO)</h3>
+          <form id="poForm">
+            <div class="row">
+              <div style="flex:1">
+                <label>เลข PO</label>
+                <input id="poNo" required placeholder="PO-0001"/>
+              </div>
+              <div style="flex:1">
+                <label>ผู้จำหน่าย (Supplier)</label>
+                <input id="supplier" required placeholder="ACME Co.,Ltd."/>
+              </div>
+            </div>
+            <div class="row">
+              <div style="flex:1">
+                <label>สินค้า (Item)</label>
+                <input id="item" required placeholder="IC-8875 / Sensor"/>
+              </div>
+              <div style="flex:1">
+                <label>จำนวน (Qty)</label>
+                <input id="qty" type="number" min="1" value="1" required/>
+              </div>
+            </div>
+            <div class="row">
+              <div style="flex:1">
+                <label>กำหนดส่ง (Due Date)</label>
+                <input id="due" type="date" required/>
+              </div>
+              <div style="flex:1">
+                <label>งบประมาณโดยประมาณ (฿)</label>
+                <input id="amount" type="number" min="0" value="0"/>
+              </div>
+            </div>
+            <label>หมายเหตุ</label>
+            <textarea id="note" rows="2" placeholder="รายละเอียดเพิ่มเติม"></textarea>
+            <div class="right">
+              <button type="submit">บันทึก PO & สร้าง Tracking</button>
+            </div>
+            <p class="hint">เมื่อบันทึก ระบบจะสร้าง <b>Tracking ID</b> สำหรับการขนส่งโดยอัตโนมัติ</p>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>รายการ PO ล่าสุด</h3>
+          <table>
+            <thead><tr><th>PO</th><th>Supplier</th><th>Item</th><th>Qty</th><th>Due</th><th>Tracking</th></tr></thead>
+            <tbody id="poTable"></tbody>
+          </table>
+          <p class="muted">แตะ Tracking เพื่อนำไปอัปเดตในแท็บ <b>Shipment</b></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHIPMENT -->
+    <section id="ship" class="view hidden">
+      <div class="grid">
+        <div class="card">
+          <h3>🚚 อัปเดตสถานะการขนส่ง</h3>
+          <form id="shipForm">
+            <div class="row">
+              <div style="flex:1">
+                <label>Tracking ID</label>
+                <input id="trk" required placeholder="TRK-2025-0001"/>
+              </div>
+              <div style="flex:1">
+                <label>สถานะ</label>
+                <select id="status" required>
+                  <option value="Created">Created</option>
+                  <option value="In Transit">In Transit</option>
+                  <option value="Arrived">Arrived</option>
+                  <option value="Delay">Delay</option>
+                  <option value="Delivered">Delivered</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div style="flex:1">
+                <label>ETA</label>
+                <input id="eta" type="datetime-local"/>
+              </div>
+              <div style="flex:1">
+                <label>ปลายทาง</label>
+                <input id="dest" placeholder="Korat DC"/>
+              </div>
+            </div>
+            <label>หมายเหตุ</label>
+            <textarea id="shipNote" rows="2" placeholder="เหตุผล Delay / ข้อมูลรถ"></textarea>
+            <div class="right">
+              <button type="submit">บันทึกสถานะ</button>
+            </div>
+          </form>
+          <div class="qrbox" style="margin-top:10px">
+            <div class="box">
+              <canvas id="trkQr" width="140" height="140"></canvas>
+            </div>
+            <div class="muted">สแกน QR นี้ในหน้า <b>Receive (QR)</b> เพื่อยืนยันรับเข้า</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>รายการขนส่งล่าสุด</h3>
+          <table>
+            <thead><tr><th>Tracking</th><th>Status</th><th>ETA</th><th>Dest</th></tr></thead>
+            <tbody id="shipTable"></tbody>
+          </table>
+          <p class="muted">สถานะ <span class="pill on">In Transit</span> / <span class="pill delay">Delay</span> / <span class="pill done">Delivered</span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECEIVE -->
+    <section id="receive" class="view hidden">
+      <div class="grid">
+        <div class="card">
+          <h3>📥 รับสินค้าเข้าคลังด้วย QR</h3>
+          <div id="reader" style="width:100%;max-width:420px"></div>
+          <p class="muted">อนุญาตกล้อง แล้วถือ QR ที่ได้จากแท็บ Shipment ให้กล้องสแกน</p>
+          <div class="row">
+            <div style="flex:1">
+              <label>Tracking ID (อ่านจาก QR หรือกรอกเอง)</label>
+              <input id="rxTrk" placeholder="TRK-2025-0001"/>
+            </div>
+            <div style="flex:1">
+              <label>จำนวนที่รับเข้า</label>
+              <input id="rxQty" type="number" min="1" value="1"/>
+            </div>
+          </div>
+          <div class="right"><button id="btnReceive">ยืนยันรับเข้า</button></div>
+          <p class="hint">ระบบจะอัปเดตสถานะเป็น <b>Delivered</b> และบันทึกเวลาโดยอัตโนมัติ</p>
+        </div>
+
+        <div class="card">
+          <h3>ประวัติการรับเข้าล่าสุด</h3>
+          <table>
+            <thead><tr><th>เวลา</th><th>Tracking</th><th>Qty</th></tr></thead>
+            <tbody id="rxTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="dash" class="view hidden">
+      <div class="grid">
+        <div class="card">
+          <h3>📊 KPI สรุป</h3>
+          <div class="row">
+            <div class="box"><div class="muted">PO รวม</div><div id="k_po" style="font-size:26px;font-weight:700">0</div></div>
+            <div class="box"><div class="muted">Shipment</div><div id="k_ship" style="font-size:26px;font-weight:700">0</div></div>
+            <div class="box"><div class="muted">% On-Time</div><div id="k_otd" style="font-size:26px;font-weight:700">0%</div></div>
+          </div>
+          <canvas id="chart1" height="120" style="margin-top:10px"></canvas>
+        </div>
+        <div class="card">
+          <h3>10 รายการล่าสุด</h3>
+          <table>
+            <thead><tr><th>เมื่อ</th><th>เหตุการณ์</th><th>รายละเอียด</th></tr></thead>
+            <tbody id="logTable"></tbody>
+          </table>
+          <p class="muted">*ข้อมูลทั้งหมดบันทึกไว้ในเบราว์เซอร์ (localStorage)</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>© 2025 Smart Supply Portal — Prototype (LocalStorage). Ready for Firebase/Sheets integration.</footer>
+
+  <script>
+    // ---------- Storage helpers ----------
+    const DB = {
+      get: (k, def=[]) => JSON.parse(localStorage.getItem(k) || JSON.stringify(def)),
+      set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+      push: (k, obj) => { const a=DB.get(k); a.unshift(obj); DB.set(k,a); },
+      log: (ev, detail) => DB.push('logs', {ts:new Date().toISOString(), ev, detail})
+    };
+
+    // seed if empty
+    if(!localStorage.getItem('pos')) DB.set('pos', []);
+    if(!localStorage.getItem('ships')) DB.set('ships', []);
+    if(!localStorage.getItem('receives')) DB.set('receives', []);
+    if(!localStorage.getItem('logs')) DB.set('logs', []);
+
+    // ---------- Tabs ----------
+    const tabs = document.querySelectorAll('.tab');
+    const views = document.querySelectorAll('.view');
+    tabs.forEach(t => t.addEventListener('click', () => {
+      tabs.forEach(x=>x.classList.remove('active')); t.classList.add('active');
+      views.forEach(v=>v.classList.add('hidden'));
+      document.getElementById(t.dataset.tab).classList.remove('hidden');
+      if(t.dataset.tab==='dash') renderDashboard();
+      if(t.dataset.tab==='receive') startScanner();
+    }));
+
+    // ---------- PO ----------
+    const poForm = document.getElementById('poForm');
+    const poTable = document.getElementById('poTable');
+
+    function genTracking(){ return 'TRK-' + new Date().toISOString().slice(0,10).replaceAll('-','') + '-' + Math.floor(1000+Math.random()*9000); }
+
+    poForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      const po = {
+        poNo: poForm.poNo.value.trim(),
+        supplier: poForm.supplier.value.trim(),
+        item: poForm.item.value.trim(),
+        qty: Number(poForm.qty.value),
+        due: poForm.due.value,
+        amount: Number(poForm.amount.value||0),
+        note: poForm.note.value.trim(),
+        trk: genTracking()
+      };
+      DB.push('pos', po);
+      // also create shipment shell
+      DB.push('ships', {trk:po.trk, status:'Created', eta:'', dest:'', poNo:po.poNo});
+      DB.log('PO Created', `${po.poNo} (${po.item} x${po.qty}) → ${po.supplier} [${po.trk}]`);
+      poForm.reset();
+      renderPO(); renderShip(); drawQR(po.trk);
+      alert('บันทึก PO แล้ว และสร้าง Tracking: ' + po.trk);
+    });
+
+    function renderPO(){
+      const rows = DB.get('pos').map(p => `
+        <tr>
+          <td>${p.poNo}</td><td>${p.supplier}</td><td>${p.item}</td>
+          <td>${p.qty}</td><td>${p.due||'-'}</td>
+          <td><code>${p.trk}</code></td>
+        </tr>`).join('');
+      poTable.innerHTML = rows || `<tr><td colspan="6" class="muted">ยังไม่มี PO</td></tr>`;
+    }
+
+    // ---------- Shipment ----------
+    const shipForm = document.getElementById('shipForm');
+    const shipTable = document.getElementById('shipTable');
+
+    shipForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      const trk = shipForm.trk.value.trim();
+      const ships = DB.get('ships');
+      let s = ships.find(x=>x.trk===trk);
+      if(!s){
+        s = {trk};
+        ships.unshift(s);
+      }
+      s.status = shipForm.status.value;
+      s.eta = shipForm.eta.value;
+      s.dest = shipForm.dest.value;
+      DB.set('ships', ships);
+      DB.log('Shipment Update', `${trk} → ${s.status}`);
+      renderShip(); drawQR(trk);
+      alert('บันทึกสถานะแล้ว');
+    });
+
+    function renderShip(){
+      const pill = (st) => {
+        if(st==='Delay') return `<span class="pill delay">Delay</span>`;
+        if(st==='Delivered' || st==='Arrived') return `<span class="pill done">${st}</span>`;
+        if(st==='In Transit') return `<span class="pill on">In Transit</span>`;
+        return `<span class="pill">${st||'-'}</span>`;
+      };
+      shipTable.innerHTML = DB.get('ships').map(s=>`
+        <tr><td><code>${s.trk}</code></td><td>${pill(s.status||'-')}</td><td>${(s.eta||'').replace('T',' ')||'-'}</td><td>${s.dest||'-'}</td></tr>
+      `).join('') || `<tr><td colspan="4" class="muted">ยังไม่มีข้อมูลขนส่ง</td></tr>`;
+    }
+
+    // QR for tracking
+    function drawQR(text){
+      const c = document.getElementById('trkQr');
+      const ctx = c.getContext('2d'); ctx.clearRect(0,0,c.width,c.height);
+      QRCode.toCanvas(c, text, {margin:1, width:140});
+    }
+
+    // ---------- Receive (QR) ----------
+    let html5Qrcode;
+    async function startScanner(){
+      const divId = "reader";
+      const box = document.getElementById(divId);
+      if(box.dataset.ready) return; // already started
+      box.dataset.ready = "1";
+      html5Qrcode = new Html5Qrcode(divId);
+      try{
+        const cams = await Html5Qrcode.getCameras();
+        const camId = cams?.[0]?.id;
+        if(!camId) return;
+        await html5Qrcode.start(
+          camId,
+          { fps: 10, qrbox: {width: 250, height: 250} },
+          (decoded)=>{ document.getElementById('rxTrk').value = decoded; },
+          ()=>{}
+        );
+      }catch(e){ console.warn(e); }
+    }
+
+    document.getElementById('btnReceive').addEventListener('click', ()=>{
+      const trk = document.getElementById('rxTrk').value.trim();
+      const qty = Number(document.getElementById('rxQty').value||0);
+      if(!trk || qty<=0){ alert('กรอก Tracking และจำนวนให้ถูกต้อง'); return; }
+
+      DB.push('receives', {ts:new Date().toISOString(), trk, qty});
+      const ships = DB.get('ships');
+      const s = ships.find(x=>x.trk===trk);
+      if(s){ s.status='Delivered'; DB.set('ships', ships); }
+      DB.log('GR (Receive)', `${trk} +${qty}`);
+      renderReceive(); renderShip(); renderDashboard();
+      alert('รับสินค้าเรียบร้อย');
+    });
+
+    function renderReceive(){
+      const rxTable = document.getElementById('rxTable');
+      rxTable.innerHTML = DB.get('receives').map(r =>
+        `<tr><td>${r.ts.replace('T',' ').slice(0,16)}</td><td><code>${r.trk}</code></td><td>${r.qty}</td></tr>`
+      ).join('') || `<tr><td colspan="3" class="muted">ยังไม่มีประวัติการรับเข้า</td></tr>`;
+    }
+
+    // ---------- Dashboard ----------
+    let chart;
+    function renderDashboard(){
+      document.getElementById('k_po').textContent = DB.get('pos').length;
+      document.getElementById('k_ship').textContent = DB.get('ships').length;
+
+      const ships = DB.get('ships');
+      const total = ships.length || 1;
+      const ontime = ships.filter(s => (s.status==='Delivered' || s.status==='Arrived' || s.status==='In Transit')).length;
+      const otd = Math.round((ontime/total)*100);
+      document.getElementById('k_otd').textContent = otd + '%';
+
+      const byStatus = ['Created','In Transit','Arrived','Delay','Delivered']
+        .map(k => ships.filter(s=>s.status===k).length);
+
+      const ctx = document.getElementById('chart1').getContext('2d');
+      chart && chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Created','In Transit','Arrived','Delay','Delivered'],
+          datasets: [{ label: 'Shipments', data: byStatus }]
+        },
+        options: { responsive:true, plugins:{legend:{display:false}} }
+      });
+
+      document.getElementById('logTable').innerHTML = DB.get('logs').slice(0,10).map(l =>
+        `<tr><td>${l.ts.replace('T',' ').slice(0,16)}</td><td>${l.ev}</td><td class="muted">${l.detail}</td></tr>`
+      ).join('') || `<tr><td colspan="3" class="muted">ยังไม่มีบันทึกเหตุการณ์</td></tr>`;
+    }
+
+    // ---------- Init ----------
+    (function init(){
+      renderPO(); renderShip(); renderReceive(); renderDashboard();
+      // pre-fill ETA default now+1h
+      const now = new Date(); now.setHours(now.getHours()+1);
+      document.getElementById('eta').value = now.toISOString().slice(0,16);
+      // draw sample QR
+      drawQR('TRK-DEMO-0001');
+    })();
+  </script>
+</body>
+</html>
